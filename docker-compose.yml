@@ -1,0 +1,19 @@
+version: "3"
+
+services:
+  ngrok:
+    image: ngrok/ngrok:latest
+    restart: unless-stopped
+    ports:
+      - "4040:4040"
+    environment:
+      NGROK_AUTH: 2JnQBka8M7KFs59QqVfSopmbksD_4Nbakz4oigBUbVRgBUfVn
+    command:
+      - "start"
+      - "--all"
+      - "--config"
+      - "/etc/ngrok.yml"
+    volumes:
+      - ./ngrok.yml:/etc/ngrok.yml
+    networks:
+      - default

@@ -8,7 +8,7 @@ interface PeerContextType {
     offer: RTCSessionDescriptionInit
   ) => Promise<RTCSessionDescriptionInit | null>;
   setRemoteAnswer: (answer: RTCSessionDescriptionInit) => Promise<void>;
-  sendStream: (stream: MediaStream) => void;
+  sendStream: (stream: MediaStream) => Promise<void>;
   connectionState: RTCPeerConnectionState;
 }
 

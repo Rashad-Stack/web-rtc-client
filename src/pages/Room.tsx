@@ -28,10 +28,17 @@ export default function Room() {
         setRemoteEmailId(emailId);
 
         if (myStream) {
-          console.log("Sending stream and creating offer...");
+          // First ensure our stream is added to peer connection
+          console.log("Adding local stream to peer connection...");
           await sendStream(myStream);
+
+          // Then create and send offer
+          console.log("Creating offer for:", emailId);
           const offer = await createOffer();
+          console.log("Sending offer to:", emailId);
           socket.emit("call-user", { offer, emailId });
+        } else {
+          console.error("No local stream available for new user");
         }
       } catch (error) {
         console.error("Error handling new user:", error);
@@ -45,15 +52,22 @@ export default function Room() {
     async (data: { from: string; offer: RTCSessionDescriptionInit }) => {
       try {
         const { from, offer } = data;
-        console.log("Incoming call from:", from);
+        console.log("Processing incoming call from:", from);
         setConnectionStatus("connecting");
         setRemoteEmailId(from);
 
-        // Send answer only if we have local stream
         if (myStream) {
-          await sendStream(myStream); // Send stream before creating answer
+          // First add our stream
+          console.log("Adding local stream before creating answer...");
+          await sendStream(myStream);
+
+          // Then create and send answer
+          console.log("Creating answer for:", from);
           const answer = await createAnswer(offer);
+          console.log("Sending answer to:", from);
           socket.emit("call-accepted", { emailId: from, answer });
+        } else {
+          console.error("No local stream available for incoming call");
         }
       } catch (error) {
         console.error("Error handling incoming call:", error);
@@ -66,15 +80,34 @@ export default function Room() {
   const handleCallAccepted = useCallback(
     async (data: { emailId: string; answer: RTCSessionDescriptionInit }) => {
       try {
-        console.log("Call accepted by:", data.emailId);
+        console.log("Processing call accepted from:", data.emailId);
+
+        if (!data.answer) {
+          throw new Error("No answer received in call-accepted event");
+        }
+
+        // Set remote description
+        console.log("Setting remote answer...");
         await setRemoteAnswer(data.answer);
+
+        // Verify connection state
+        console.log(
+          "Call accepted - current connection state:",
+          connectionState
+        );
         setConnectionStatus("connected");
+
+        // Ensure our stream is still being sent
+        if (myStream) {
+          console.log("Re-sending stream after connection established");
+          await sendStream(myStream);
+        }
       } catch (error) {
         console.error("Error handling call accepted:", error);
         setConnectionStatus("idle");
       }
     },
-    [setRemoteAnswer]
+    [setRemoteAnswer, myStream, sendStream, connectionState]
   );
 
   const getUserMediaStream = useCallback(async () => {
@@ -93,6 +126,44 @@ export default function Room() {
       console.error("Error getting user media:", error);
     }
   }, []);
+
+  // Debug effects
+  useEffect(() => {
+    console.log("Connection state update:", {
+      connectionState,
+      connectionStatus,
+      hasRemoteStream: !!remoteStream,
+      remoteStreamTracks: remoteStream?.getTracks().length ?? 0,
+    });
+  }, [connectionState, connectionStatus, remoteStream]);
+
+  useEffect(() => {
+    if (remoteStream) {
+      console.log("Remote stream received:", {
+        id: remoteStream.id,
+        tracks: remoteStream.getTracks().map((t) => ({
+          kind: t.kind,
+          enabled: t.enabled,
+          muted: t.muted,
+        })),
+      });
+    }
+  }, [remoteStream]);
+
+  // Socket connection monitoring
+  useEffect(() => {
+    if (!socket.connected) {
+      console.warn("Socket disconnected - reconnecting...");
+      socket.connect();
+    }
+
+    return () => {
+      if (connectionStatus === "connected") {
+        console.log("Cleaning up connection...");
+        setConnectionStatus("idle");
+      }
+    };
+  }, [socket, connectionStatus]);
 
   // Get user media on component mount
   useEffect(() => {
@@ -115,21 +186,34 @@ export default function Room() {
     }
 
     console.log("Setting up socket listeners");
+
+    // Debug listener
+    socket.onAny((event, ...args) => {
+      console.log("Socket event received:", event, args);
+    });
+
+    // Add explicit handler for call-accepted
+    const onCallAccepted = (data: any) => {
+      console.log("call-accepted event received:", data);
+      handleCallAccepted(data);
+    };
+
     socket.on("incoming-call", handleIncomingCall);
     socket.on("user-connected", handleNewUserJoined);
-    socket.on("call-accepted", handleCallAccepted);
+    socket.on("call-accepted", onCallAccepted);
 
     return () => {
       console.log("Cleaning up socket listeners");
       socket.off("incoming-call");
       socket.off("user-connected");
       socket.off("call-accepted");
+      socket.offAny();
     };
   }, [socket, handleIncomingCall, handleNewUserJoined, handleCallAccepted]);
 
   // Debug logging
   useEffect(() => {
-    console.log("Remote stream updated:", remoteStream?.id);
+    console.log("Remote stream updated:", remoteStream);
   }, [remoteStream]);
 
   return (
