@@ -1,0 +1,8 @@
+authtoken: 2JnQBka8M7KFs59QqVfSopmbksD_4Nbakz4oigBUbVRgBUfVn
+tunnels:
+  website:
+    proto: http
+    hostname: steady-quality-gopher.ngrok-free.app
+    addr: 172.23.192.1:5173
+    inspect: true
+version: 2
