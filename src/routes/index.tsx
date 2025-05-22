@@ -10,7 +10,7 @@ const router = createBrowserRouter([
     errorElement: <div>Error</div>,
   },
   {
-    path: "/room/:roomId",
+    path: "/room/:userId",
     element: <Room />,
     hydrateFallbackElement: <div>Loading...</div>,
     errorElement: <div>Error</div>,

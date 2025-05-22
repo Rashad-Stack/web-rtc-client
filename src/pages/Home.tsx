@@ -13,8 +13,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import useSocketContext from "@/hooks/useSocketContext";
-import { useCallback, useEffect } from "react";
+
 import { useNavigate } from "react-router";
 
 const formSchema = z.object({
@@ -27,7 +26,6 @@ const formSchema = z.object({
 });
 
 export default function Home() {
-  const socket = useSocketContext();
   const navigate = useNavigate();
 
   // 1. Define your form.
@@ -40,25 +38,10 @@ export default function Home() {
   });
 
   // 2. Define a submit handler.
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    socket.emit("join-room", {
-      emailId: values.email,
-      roomId: values.roomCode,
-    });
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    console.log(values);
+    navigate(`/room/${values.roomCode}`);
   }
-
-  const handleJoinRoom = useCallback(
-    () => navigate("/room/" + form.getValues("roomCode")),
-    [navigate, form]
-  );
-
-  useEffect(() => {
-    socket.on("joined-room", handleJoinRoom);
-
-    return () => {
-      socket.off("joined-room", handleJoinRoom);
-    };
-  }, [handleJoinRoom, navigate, socket]);
 
   return (
     <Form {...form}>
